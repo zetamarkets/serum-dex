@@ -458,6 +458,13 @@ pub enum MarketInstruction {
     /// 1. `[writable]` bids
     /// 2. `[writable]` asks
     /// 3. `[writable]` OpenOrders
+    /// 4. `[signer]` the OpenOrders owner
+    /// 5. `[writable]` event_q
+    CancelOrderByClientIdNoErrorV2(u64),
+    /// 0. `[writable]` market
+    /// 1. `[writable]` bids
+    /// 2. `[writable]` asks
+    /// 3. `[writable]` OpenOrders
     /// 4. `[]`
     SendTake(SendTakeInstruction),
     /// 0. `[writable]` OpenOrders
@@ -577,17 +584,21 @@ impl MarketInstruction {
                 let client_id = array_ref![data, 0, 8];
                 MarketInstruction::CancelOrderByClientIdV2(u64::from_le_bytes(*client_id))
             }
-            (14, 46) => MarketInstruction::SendTake({
+            (14, 8) => {
+                let client_id = array_ref![data, 0, 8];
+                MarketInstruction::CancelOrderByClientIdNoErrorV2(u64::from_le_bytes(*client_id))
+            }
+            (15, 46) => MarketInstruction::SendTake({
                 let data_arr = array_ref![data, 0, 46];
                 SendTakeInstruction::unpack(data_arr)?
             }),
-            (15, 0) => MarketInstruction::CloseOpenOrders,
-            (16, 0) => MarketInstruction::InitOpenOrders,
-            (17, 2) => {
+            (16, 0) => MarketInstruction::CloseOpenOrders,
+            (17, 0) => MarketInstruction::InitOpenOrders,
+            (18, 2) => {
                 let limit = array_ref![data, 0, 2];
                 MarketInstruction::Prune(u16::from_le_bytes(*limit))
             }
-            (18, 2) => {
+            (19, 2) => {
                 let limit = array_ref![data, 0, 2];
                 MarketInstruction::ConsumeEventsPermissioned(u16::from_le_bytes(*limit))
             }
@@ -925,6 +936,32 @@ pub fn cancel_order_by_client_order_id(
     client_order_id: u64,
 ) -> Result<Instruction, DexError> {
     let data = MarketInstruction::CancelOrderByClientIdV2(client_order_id).pack();
+    let accounts: Vec<AccountMeta> = vec![
+        AccountMeta::new(*market, false),
+        AccountMeta::new(*market_bids, false),
+        AccountMeta::new(*market_asks, false),
+        AccountMeta::new(*open_orders_account, false),
+        AccountMeta::new_readonly(*open_orders_account_owner, true),
+        AccountMeta::new(*event_queue, false),
+    ];
+    Ok(Instruction {
+        program_id: *program_id,
+        data,
+        accounts,
+    })
+}
+
+pub fn cancel_order_by_client_order_id_no_error(
+    program_id: &Pubkey,
+    market: &Pubkey,
+    market_bids: &Pubkey,
+    market_asks: &Pubkey,
+    open_orders_account: &Pubkey,
+    open_orders_account_owner: &Pubkey,
+    event_queue: &Pubkey,
+    client_order_id: u64,
+) -> Result<Instruction, DexError> {
+    let data = MarketInstruction::CancelOrderByClientIdNoErrorV2(client_order_id).pack();
     let accounts: Vec<AccountMeta> = vec![
         AccountMeta::new(*market, false),
         AccountMeta::new(*market_bids, false),

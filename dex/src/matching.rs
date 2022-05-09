@@ -930,6 +930,28 @@ impl<'ob> OrderBookState<'ob> {
         Ok(None)
     }
 
+    pub(crate) fn cancel_order_v2(
+        &mut self,
+        side: Side,
+        open_orders_address: [u64; 4],
+        open_orders: &mut OpenOrders,
+        order_id: u128,
+        event_q: &mut EventQueue,
+    ) -> DexResult {
+        let leaf_node = self
+            .orders_mut(side)
+            .remove_by_key(order_id)
+            .ok_or(DexErrorCode::OrderNotFound)?;
+        self.cancel_leaf_node(
+            leaf_node,
+            side,
+            open_orders,
+            open_orders_address,
+            order_id,
+            event_q,
+        )
+    }
+
     pub(crate) fn cancel_order_no_error_v2(
         &mut self,
         side: Side,
@@ -954,28 +976,6 @@ impl<'ob> OrderBookState<'ob> {
             ),
             Err(_e) => Ok(()), // Silently drop the error on purpose and don't run cancel_leaf_node
         };
-    }
-
-    pub(crate) fn cancel_order_v2(
-        &mut self,
-        side: Side,
-        open_orders_address: [u64; 4],
-        open_orders: &mut OpenOrders,
-        order_id: u128,
-        event_q: &mut EventQueue,
-    ) -> DexResult {
-        let leaf_node = self
-            .orders_mut(side)
-            .remove_by_key(order_id)
-            .ok_or(DexErrorCode::OrderNotFound)?;
-        self.cancel_leaf_node(
-            leaf_node,
-            side,
-            open_orders,
-            open_orders_address,
-            order_id,
-            event_q,
-        )
     }
 
     pub(crate) fn cancel_leaf_node(
