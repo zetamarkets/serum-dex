@@ -27,7 +27,7 @@ use crate::{
     fees::{self, FeeTier},
     instruction::{
         disable_authority, fee_sweeper, msrm_token, srm_token, CancelOrderInstructionV2,
-        CancelOrderNoErrorInstructionV2, InitializeMarketInstruction, MarketInstruction,
+        CancelOrderInstructionV2NoError, InitializeMarketInstruction, MarketInstruction,
         NewOrderInstructionV3, SelfTradeBehavior, SendTakeInstruction,
     },
     matching::{OrderBookState, OrderType, RequestProceeds, Side},
@@ -2013,20 +2013,20 @@ pub(crate) mod account_parser {
         }
     }
 
-    pub struct CancelOrderNoErrorV2Args<'a, 'b: 'a> {
-        pub instruction: &'a CancelOrderNoErrorInstructionV2,
+    pub struct CancelOrderV2NoErrorArgs<'a, 'b: 'a> {
+        pub instruction: &'a CancelOrderInstructionV2NoError,
         pub open_orders_address: [u64; 4],
         pub open_orders: &'a mut OpenOrders,
         pub open_orders_signer: SignerAccount<'a, 'b>,
         pub order_book_state: OrderBookState<'a>,
         pub event_q: EventQueue<'a>,
     }
-    impl<'a, 'b: 'a> CancelOrderNoErrorV2Args<'a, 'b> {
+    impl<'a, 'b: 'a> CancelOrderV2NoErrorArgs<'a, 'b> {
         pub fn with_parsed_args<T>(
             program_id: &'a Pubkey,
             accounts: &'a [AccountInfo<'b>],
-            instruction: &'a CancelOrderNoErrorInstructionV2,
-            f: impl FnOnce(CancelOrderNoErrorV2Args) -> DexResult<T>,
+            instruction: &'a CancelOrderInstructionV2NoError,
+            f: impl FnOnce(CancelOrderV2NoErrorArgs) -> DexResult<T>,
         ) -> DexResult<T> {
             check_assert!(accounts.len() >= 6)?;
             #[rustfmt::skip]
@@ -2062,7 +2062,7 @@ pub(crate) mod account_parser {
                 market_state: market.deref_mut(),
             };
 
-            let args = CancelOrderNoErrorV2Args {
+            let args = CancelOrderV2NoErrorArgs {
                 instruction,
                 open_orders_address,
                 open_orders: open_orders.deref_mut(),
@@ -2137,7 +2137,7 @@ pub(crate) mod account_parser {
         }
     }
 
-    pub struct CancelOrderByClientIdNoErrorV2Args<'a, 'b: 'a> {
+    pub struct CancelOrderByClientIdV2NoErrorArgs<'a, 'b: 'a> {
         pub client_order_id: NonZeroU64,
         pub open_orders_address: [u64; 4],
         pub open_orders: &'a mut OpenOrders,
@@ -2145,12 +2145,12 @@ pub(crate) mod account_parser {
         pub order_book_state: OrderBookState<'a>,
         pub event_q: EventQueue<'a>,
     }
-    impl<'a, 'b: 'a> CancelOrderByClientIdNoErrorV2Args<'a, 'b> {
+    impl<'a, 'b: 'a> CancelOrderByClientIdV2NoErrorArgs<'a, 'b> {
         pub fn with_parsed_args<T>(
             program_id: &'a Pubkey,
             accounts: &'a [AccountInfo<'b>],
             client_order_id: u64,
-            f: impl FnOnce(CancelOrderByClientIdNoErrorV2Args) -> DexResult<T>,
+            f: impl FnOnce(CancelOrderByClientIdV2NoErrorArgs) -> DexResult<T>,
         ) -> DexResult<T> {
             check_assert!(accounts.len() >= 6)?;
             #[rustfmt::skip]
@@ -2188,7 +2188,7 @@ pub(crate) mod account_parser {
                 market_state: market.deref_mut(),
             };
 
-            let args = CancelOrderByClientIdNoErrorV2Args {
+            let args = CancelOrderByClientIdV2NoErrorArgs {
                 client_order_id,
                 open_orders_address,
                 open_orders: open_orders.deref_mut(),
@@ -2573,8 +2573,8 @@ impl State {
                     Self::process_cancel_order_v2,
                 )?
             }
-            MarketInstruction::CancelOrderNoErrorV2(ref inner) => {
-                account_parser::CancelOrderNoErrorV2Args::with_parsed_args(
+            MarketInstruction::CancelOrderV2NoError(ref inner) => {
+                account_parser::CancelOrderV2NoErrorArgs::with_parsed_args(
                     program_id,
                     accounts,
                     inner,
@@ -2597,8 +2597,8 @@ impl State {
                     Self::process_cancel_order_by_client_id_v2,
                 )?
             }
-            MarketInstruction::CancelOrderByClientIdNoErrorV2(client_id) => {
-                account_parser::CancelOrderByClientIdNoErrorV2Args::with_parsed_args(
+            MarketInstruction::CancelOrderByClientIdV2NoError(client_id) => {
+                account_parser::CancelOrderByClientIdV2NoErrorArgs::with_parsed_args(
                     program_id,
                     accounts,
                     client_id,
@@ -2857,9 +2857,9 @@ impl State {
     }
 
     fn process_cancel_order_by_client_id_no_error_v2(
-        args: account_parser::CancelOrderByClientIdNoErrorV2Args,
+        args: account_parser::CancelOrderByClientIdV2NoErrorArgs,
     ) -> DexResult {
-        let account_parser::CancelOrderByClientIdNoErrorV2Args {
+        let account_parser::CancelOrderByClientIdV2NoErrorArgs {
             client_order_id,
             open_orders_address,
             open_orders,
@@ -2883,10 +2883,10 @@ impl State {
     }
 
     fn process_cancel_order_no_error_v2(
-        args: account_parser::CancelOrderNoErrorV2Args,
+        args: account_parser::CancelOrderV2NoErrorArgs,
     ) -> DexResult {
-        let account_parser::CancelOrderNoErrorV2Args {
-            instruction: &CancelOrderNoErrorInstructionV2 { side, order_id },
+        let account_parser::CancelOrderV2NoErrorArgs {
+            instruction: &CancelOrderInstructionV2NoError { side, order_id },
 
             open_orders_address,
             open_orders,
