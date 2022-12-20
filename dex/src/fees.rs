@@ -82,6 +82,7 @@ impl FeeTier {
 
     #[inline]
     pub fn maker_rebate(self, pc_qty: u64) -> u64 {
+        use FeeTier::*;
         let rate: U64F64 = match self {
             _ => rebate_bps(0),
         };
@@ -89,6 +90,7 @@ impl FeeTier {
     }
 
     fn taker_rate(self) -> U64F64 {
+        use FeeTier::*;
         match self {
             _ => fee_bps(0),
         }
