@@ -593,7 +593,7 @@ pub enum MarketInstruction {
     /// 3. `[signer]` prune authority
     /// 4. `[writable]` event queue.
     PruneExpired(u16),
-    /// Pop out events from the tail of the event queue after a cancel.
+    /// Pop out events from the tail of the event queue after a cancel or new bid order.
     ///
     /// 0. `[writable]` OpenOrders
     /// 1. `[signer]` the OpenOrders owner

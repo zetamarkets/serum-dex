@@ -3451,12 +3451,12 @@ impl State {
                     owner_slot,
                     client_order_id,
                 } => {
-                    // check_assert!(event.owner_slot < 128)?;
-                    // check_assert_eq!(&open_orders.slot_side(event.owner_slot), &Some(view.side()))?;
-                    // check_assert_eq!(
-                    //     open_orders.orders[event.owner_slot as usize],
-                    //     event.order_id
-                    // )?;
+                    check_assert!(event.owner_slot < 128)?;
+                    check_assert_eq!(&open_orders.slot_side(event.owner_slot), &Some(view.side()))?;
+                    check_assert_eq!(
+                        open_orders.orders[event.owner_slot as usize],
+                        event.order_id
+                    )?;
 
                     let fully_out = native_qty_still_locked == 0;
 
@@ -3538,8 +3538,7 @@ impl State {
                     owner_slot: _,
                     client_order_id: _,
                 } => {
-                    // TODO: Change error code
-                    return Err(DexErrorCode::InsufficientFunds.into());
+                    return Err(DexErrorCode::InvalidEventToPopFromTail.into());
                 }
                 EventView::Out {
                     side,
