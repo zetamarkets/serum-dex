@@ -2933,6 +2933,50 @@ fn remove_slop_mut<T: Pod>(bytes: &mut [u8]) -> &mut [T] {
     cast_slice_mut(&mut bytes[..new_len])
 }
 
+#[inline]
+fn action_out_event(
+    open_orders: &mut OpenOrders,
+    order_id: u128,
+    side: Side,
+    release_funds: bool,
+    native_qty_unlocked: u64,
+    native_qty_still_locked: u64,
+    owner_slot: u8,
+    client_order_id: Option<NonZeroU64>,
+) -> DexResult {
+    check_assert!(owner_slot < 128)?;
+    check_assert_eq!(&open_orders.slot_side(owner_slot), &Some(side))?;
+    check_assert_eq!(open_orders.orders[owner_slot as usize], order_id)?;
+
+    let fully_out = native_qty_still_locked == 0;
+
+    match side {
+        Side::Bid => {
+            if release_funds {
+                open_orders.native_pc_free += native_qty_unlocked;
+            }
+            check_assert!(open_orders.native_pc_free <= open_orders.native_pc_total)?;
+        }
+        Side::Ask => {
+            if release_funds {
+                open_orders.native_coin_free += native_qty_unlocked;
+            }
+            check_assert!(open_orders.native_coin_free <= open_orders.native_coin_total)?;
+        }
+    };
+    if let Some(client_id) = client_order_id {
+        debug_assert_eq!(
+            client_id.get(),
+            identity(open_orders.client_order_ids[owner_slot as usize])
+        );
+    }
+    if fully_out {
+        open_orders.remove_order(owner_slot)?;
+    }
+
+    Ok(())
+}
+
 #[cfg_attr(not(feature = "program"), allow(unused))]
 impl State {
     #[cfg(feature = "program")]
@@ -3388,7 +3432,6 @@ impl State {
                 Some(e) => e,
             };
 
-            let view = event.as_view()?;
             let owner: [u64; 4] = event.owner;
             let owner_index: Result<usize, usize> = open_orders_accounts
                 .binary_search_by_key(&owner, |account_info| account_info.key.to_aligned_bytes());
@@ -3446,47 +3489,21 @@ impl State {
                     release_funds,
                     native_qty_unlocked,
                     native_qty_still_locked,
-                    order_id: _,
+                    order_id,
                     owner: _,
                     owner_slot,
                     client_order_id,
                 } => {
-                    check_assert!(event.owner_slot < 128)?;
-                    check_assert_eq!(&open_orders.slot_side(event.owner_slot), &Some(view.side()))?;
-                    check_assert_eq!(
-                        open_orders.orders[event.owner_slot as usize],
-                        event.order_id
+                    action_out_event(
+                        &mut open_orders,
+                        order_id,
+                        side,
+                        release_funds,
+                        native_qty_unlocked,
+                        native_qty_still_locked,
+                        owner_slot,
+                        client_order_id,
                     )?;
-
-                    let fully_out = native_qty_still_locked == 0;
-
-                    match side {
-                        Side::Bid => {
-                            if release_funds {
-                                open_orders.native_pc_free += native_qty_unlocked;
-                            }
-                            check_assert!(
-                                open_orders.native_pc_free <= open_orders.native_pc_total
-                            )?;
-                        }
-                        Side::Ask => {
-                            if release_funds {
-                                open_orders.native_coin_free += native_qty_unlocked;
-                            }
-                            check_assert!(
-                                open_orders.native_coin_free <= open_orders.native_coin_total
-                            )?;
-                        }
-                    };
-                    if let Some(client_id) = client_order_id {
-                        debug_assert_eq!(
-                            client_id.get(),
-                            identity(open_orders.client_order_ids[owner_slot as usize])
-                        );
-                    }
-                    if fully_out {
-                        open_orders.remove_order(owner_slot)?;
-                    }
                 }
             };
 
@@ -3545,40 +3562,21 @@ impl State {
                     release_funds,
                     native_qty_unlocked,
                     native_qty_still_locked,
-                    order_id: _,
+                    order_id,
                     owner: _,
                     owner_slot,
                     client_order_id,
                 } => {
-                    let fully_out = native_qty_still_locked == 0;
-
-                    match side {
-                        Side::Bid => {
-                            if release_funds {
-                                open_orders.native_pc_free += native_qty_unlocked;
-                            }
-                            check_assert!(
-                                open_orders.native_pc_free <= open_orders.native_pc_total
-                            )?;
-                        }
-                        Side::Ask => {
-                            if release_funds {
-                                open_orders.native_coin_free += native_qty_unlocked;
-                            }
-                            check_assert!(
-                                open_orders.native_coin_free <= open_orders.native_coin_total
-                            )?;
-                        }
-                    };
-                    if let Some(client_id) = client_order_id {
-                        debug_assert_eq!(
-                            client_id.get(),
-                            identity(open_orders.client_order_ids[owner_slot as usize])
-                        );
-                    }
-                    if fully_out {
-                        open_orders.remove_order(owner_slot)?;
-                    }
+                    action_out_event(
+                        open_orders,
+                        order_id,
+                        side,
+                        release_funds,
+                        native_qty_unlocked,
+                        native_qty_still_locked,
+                        owner_slot,
+                        client_order_id,
+                    )?;
                 }
             };
 
