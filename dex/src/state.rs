@@ -2155,6 +2155,7 @@ pub(crate) mod account_parser {
                 market_state: market_state.borrow_mut(),
             };
 
+            // solana_program::msg!("hello world: {}", instruction.usdc_usd_rate);
             let args = NewOrderV4Args {
                 instruction,
                 order_book_state,
@@ -3684,6 +3685,7 @@ impl State {
             &mut event_q,
             &mut proceeds,
             &mut limit,
+            1_000000,
         )?;
 
         check_assert!(unfilled_portion.is_none())?;
@@ -3875,6 +3877,7 @@ impl State {
             &mut event_q,
             &mut proceeds,
             &mut limit,
+            instruction.usdc_usd_rate,
         )?;
 
         check_assert!(unfilled_portion.is_none())?;

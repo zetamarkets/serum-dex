@@ -76,6 +76,7 @@ impl<'ob> OrderBookState<'ob> {
         event_q: &mut EventQueue,
         proceeds: &mut RequestProceeds,
         limit: &mut u16,
+        usdc_usd_rate: u64,
     ) -> DexResult<Option<RequestView>> {
         Ok(match *request {
             RequestView::NewOrder {
@@ -104,6 +105,7 @@ impl<'ob> OrderBookState<'ob> {
                         client_order_id: client_order_id.map_or(0, NonZeroU64::get),
                         self_trade_behavior,
                         tif_offset,
+                        usdc_usd_rate,
                     },
                     event_q,
                     proceeds,
@@ -254,6 +256,7 @@ pub(crate) struct NewOrderParams {
     client_order_id: u64,
     self_trade_behavior: SelfTradeBehavior,
     tif_offset: u16,
+    usdc_usd_rate: u64,
 }
 
 struct OrderRemaining {
@@ -284,6 +287,7 @@ impl<'ob> OrderBookState<'ob> {
             client_order_id,
             self_trade_behavior,
             tif_offset,
+            usdc_usd_rate,
         } = params;
         let (mut post_only, mut post_allowed) = match order_type {
             OrderType::Limit => (false, true),
@@ -313,6 +317,7 @@ impl<'ob> OrderBookState<'ob> {
                         client_order_id,
                         self_trade_behavior,
                         tif_offset,
+                        usdc_usd_rate,
                     },
                     event_q,
                     proceeds,
@@ -332,6 +337,7 @@ impl<'ob> OrderBookState<'ob> {
                             client_order_id,
                             self_trade_behavior,
                             tif_offset,
+                            usdc_usd_rate,
                         },
                         event_q,
                         proceeds,
@@ -365,6 +371,7 @@ struct NewAskParams {
     client_order_id: u64,
     self_trade_behavior: SelfTradeBehavior,
     tif_offset: u16,
+    usdc_usd_rate: u64,
 }
 
 impl<'ob> OrderBookState<'ob> {
@@ -386,6 +393,7 @@ impl<'ob> OrderBookState<'ob> {
             client_order_id,
             self_trade_behavior,
             tif_offset,
+            usdc_usd_rate,
         } = params;
 
         let current_ts = (Clock::get()?).unix_timestamp as u64;
@@ -521,8 +529,11 @@ impl<'ob> OrderBookState<'ob> {
                 return Ok(order_remaining);
             }
 
+            // TODO: Fix this arithmetic
+            let usdc_adjusted_trade_price = trade_price.get() * usdc_usd_rate / 1_000000;
+
             let maker_fee_tier = best_bid_ref.fee_tier();
-            let native_maker_pc_qty = trade_qty * trade_price.get() * pc_lot_size;
+            let native_maker_pc_qty = trade_qty * usdc_adjusted_trade_price * pc_lot_size;
             let native_maker_rebate = maker_fee_tier.maker_rebate(native_maker_pc_qty);
             accum_maker_rebates += native_maker_rebate;
 
@@ -568,7 +579,10 @@ impl<'ob> OrderBookState<'ob> {
             break false;
         };
 
-        let native_taker_pc_qty = accum_fill_price * pc_lot_size;
+        // TODO: Fix this arithmetic
+        let usdc_adjusted_accum_fill_price = accum_fill_price * usdc_usd_rate / 1_000000;
+
+        let native_taker_pc_qty = usdc_adjusted_accum_fill_price * pc_lot_size;
         let native_taker_fee = fee_tier.taker_fee(native_taker_pc_qty);
 
         {
@@ -681,6 +695,7 @@ struct NewBidParams {
     client_order_id: u64,
     self_trade_behavior: SelfTradeBehavior,
     tif_offset: u16,
+    usdc_usd_rate: u64,
 }
 
 impl<'ob> OrderBookState<'ob> {
@@ -703,6 +718,7 @@ impl<'ob> OrderBookState<'ob> {
             client_order_id,
             self_trade_behavior,
             tif_offset,
+            usdc_usd_rate,
         } = params;
         if post_allowed {
             check_assert!(limit_price.is_some())?;
@@ -871,8 +887,12 @@ impl<'ob> OrderBookState<'ob> {
 
                 return Ok(order_remaining);
             }
+
+            // TODO: Fix this arithmetic
+            let usdc_adjusted_trade_price = trade_price.get() * usdc_usd_rate / 1_000000;
+
             let maker_fee_tier = best_offer_ref.fee_tier();
-            let native_maker_pc_qty = trade_qty * trade_price.get() * pc_lot_size;
+            let native_maker_pc_qty = trade_qty * usdc_adjusted_trade_price * pc_lot_size;
             let native_maker_rebate = maker_fee_tier.maker_rebate(native_maker_pc_qty);
             accum_maker_rebates += native_maker_rebate;
 
@@ -919,18 +939,23 @@ impl<'ob> OrderBookState<'ob> {
         };
 
         let native_accum_fill_price = (max_pc_qty - pc_qty_remaining) * pc_lot_size;
+
+        // TODO: Fix this arithmetic
+        let adjusted_native_accum_fill_price = native_accum_fill_price * usdc_usd_rate / 1_000000;
+
+        // Irrelevant
         let native_taker_fee = fee_tier.taker_fee(native_accum_fill_price);
         let native_pc_qty_remaining =
-            native_pc_qty_locked.get() - native_accum_fill_price - native_taker_fee;
+            native_pc_qty_locked.get() - adjusted_native_accum_fill_price - native_taker_fee;
 
         {
             let coin_lots_received = max_coin_qty.get() - coin_qty_remaining;
-            let native_pc_paid = native_accum_fill_price + native_taker_fee;
+            let native_pc_paid = adjusted_native_accum_fill_price + native_taker_fee;
 
             to_release.credit_coin(coin_lots_received);
             to_release.debit_native_pc(native_pc_paid);
 
-            if native_accum_fill_price > 0 {
+            if adjusted_native_accum_fill_price > 0 {
                 let taker_fill = Event::new(EventView::Fill {
                     side: Side::Bid,
                     maker: false,

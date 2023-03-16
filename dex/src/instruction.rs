@@ -128,6 +128,7 @@ pub struct NewOrderInstructionV4 {
     pub client_order_id: u64,
     pub limit: u16,
     pub tif_offset: u16,
+    pub usdc_usd_rate: u64,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
@@ -253,7 +254,7 @@ impl SendTakeInstruction {
 }
 
 impl NewOrderInstructionV4 {
-    fn unpack(data: &[u8; 48]) -> Option<Self> {
+    fn unpack(data: &[u8; 56]) -> Option<Self> {
         let (
             &side_arr,
             &price_arr,
@@ -264,7 +265,8 @@ impl NewOrderInstructionV4 {
             &client_order_id_bytes,
             &limit_arr,
             &tif_offset_arr,
-        ) = array_refs![data, 4, 8, 8, 8, 4, 4, 8, 2, 2];
+            &usdc_usd_rate_arr,
+        ) = array_refs![data, 4, 8, 8, 8, 4, 4, 8, 2, 2, 8];
 
         let side = Side::try_from_primitive(u32::from_le_bytes(side_arr).try_into().ok()?).ok()?;
         let limit_price = NonZeroU64::new(u64::from_le_bytes(price_arr))?;
@@ -282,6 +284,7 @@ impl NewOrderInstructionV4 {
         let client_order_id = u64::from_le_bytes(client_order_id_bytes);
         let limit = u16::from_le_bytes(limit_arr);
         let tif_offset = u16::from_le_bytes(tif_offset_arr);
+        let usdc_usd_rate = u64::from_le_bytes(usdc_usd_rate_arr);
 
         Some(NewOrderInstructionV4 {
             side,
@@ -293,6 +296,7 @@ impl NewOrderInstructionV4 {
             client_order_id,
             limit,
             tif_offset,
+            usdc_usd_rate,
         })
     }
 }
@@ -609,7 +613,7 @@ impl MarketInstruction {
     }
 
     pub fn unpack(versioned_bytes: &[u8]) -> Option<Self> {
-        if versioned_bytes.len() < 5 || versioned_bytes.len() > 58 {
+        if versioned_bytes.len() < 5 || versioned_bytes.len() > 61 {
             return None;
         }
         let (&[version], &discrim, data) = array_refs![versioned_bytes, 1, 4; ..;];
@@ -716,8 +720,8 @@ impl MarketInstruction {
                 let epoch_length = array_ref![data, 0, 2];
                 MarketInstruction::InitializeTIFEpochCycle(u16::from_le_bytes(*epoch_length))
             }
-            (21, 48) => MarketInstruction::NewOrderV4({
-                let data_arr = array_ref![data, 0, 48];
+            (21, 56) => MarketInstruction::NewOrderV4({
+                let data_arr = array_ref![data, 0, 56];
                 NewOrderInstructionV4::unpack(data_arr)?
             }),
             (22, 2) => {
@@ -920,6 +924,7 @@ pub fn new_order_v4(
     limit: u16,
     max_native_pc_qty_including_fees: NonZeroU64,
     tif_offset: u16,
+    usdc_usd_rate: u64,
 ) -> Result<Instruction, DexError> {
     let data = MarketInstruction::NewOrderV4(NewOrderInstructionV4 {
         side,
@@ -931,6 +936,7 @@ pub fn new_order_v4(
         limit,
         max_native_pc_qty_including_fees,
         tif_offset,
+        usdc_usd_rate,
     })
     .pack();
     let accounts = vec![
