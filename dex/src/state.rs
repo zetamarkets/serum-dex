@@ -2262,7 +2262,7 @@ pub(crate) mod account_parser {
             limit: u16,
             f: impl FnOnce(PopTailOutEventsArgs) -> DexResult<T>,
         ) -> DexResult<T> {
-            check_assert!(accounts.len() >= 4)?;
+            check_assert!(accounts.len() >= 5)?;
             #[rustfmt::skip]
             let &[
                 ref open_orders_acc,
