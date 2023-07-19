@@ -16,7 +16,7 @@ use num_traits::FromPrimitive;
 use safe_transmute::{self, to_bytes::transmute_to_bytes, trivial::TriviallyTransmutable};
 
 use solana_program::{
-    account_info::AccountInfo, clock::Clock, msg, program_error::ProgramError, program_pack::Pack,
+    account_info::AccountInfo, clock::Clock, program_error::ProgramError, program_pack::Pack,
     pubkey::Pubkey, rent::Rent, sysvar::Sysvar,
 };
 use spl_token::error::TokenError;
@@ -841,6 +841,11 @@ impl<'a, H: QueueHeader> Queue<'a, H> {
     }
 
     #[inline]
+    fn get_tail_index(&self) -> usize {
+        ((self.header.head() + self.header.count() - 1) % self.buf.len() as u64) as usize
+    }
+
+    #[inline]
     pub fn push_back(&mut self, value: H::Item) -> Result<(), H::Item> {
         if self.full() {
             return Err(value);
@@ -892,8 +897,7 @@ impl<'a, H: QueueHeader> Queue<'a, H> {
         if self.empty() {
             return None;
         }
-        let index = (self.header.head() + self.header.count() - 1) % self.buf.len() as u64;
-        Some(&self.buf[index as usize])
+        Some(&self.buf[self.get_tail_index()])
     }
 
     #[inline]
@@ -901,9 +905,7 @@ impl<'a, H: QueueHeader> Queue<'a, H> {
         if self.empty() {
             return Err(());
         }
-        let index = (self.header.head() + self.header.count() - 1) % self.buf.len() as u64;
-        let value = self.buf[index as usize];
-
+        let value = self.buf[self.get_tail_index()];
         let count = self.header.count();
         self.header.set_count(count - 1);
 
