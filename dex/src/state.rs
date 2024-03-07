@@ -2952,37 +2952,37 @@ fn action_out_event(
     check_assert_eq!(&open_orders.slot_side(owner_slot), &Some(side))?;
     // check_assert_eq!(open_orders.orders[owner_slot as usize], order_id)?;
 
-    if open_orders.orders[owner_slot as usize] == order_id {
-        let fully_out = native_qty_still_locked == 0;
-
-        match side {
-            Side::Bid => {
-                if release_funds {
-                    open_orders.native_pc_free += native_qty_unlocked;
-                }
-                check_assert!(open_orders.native_pc_free <= open_orders.native_pc_total)?;
-            }
-            Side::Ask => {
-                if release_funds {
-                    open_orders.native_coin_free += native_qty_unlocked;
-                }
-                check_assert!(open_orders.native_coin_free <= open_orders.native_coin_total)?;
-            }
-        };
-        if let Some(client_id) = client_order_id {
-            debug_assert_eq!(
-                client_id.get(),
-                identity(open_orders.client_order_ids[owner_slot as usize])
-            );
-        }
-        if fully_out {
-            open_orders.remove_order(owner_slot)?;
-        }
-
-        Ok(())
-    } else {
-        Ok(())
+    if open_orders.orders[owner_slot as usize] != order_id {
+        return Ok(());
     }
+
+    let fully_out = native_qty_still_locked == 0;
+
+    match side {
+        Side::Bid => {
+            if release_funds {
+                open_orders.native_pc_free += native_qty_unlocked;
+            }
+            check_assert!(open_orders.native_pc_free <= open_orders.native_pc_total)?;
+        }
+        Side::Ask => {
+            if release_funds {
+                open_orders.native_coin_free += native_qty_unlocked;
+            }
+            check_assert!(open_orders.native_coin_free <= open_orders.native_coin_total)?;
+        }
+    };
+    if let Some(client_id) = client_order_id {
+        debug_assert_eq!(
+            client_id.get(),
+            identity(open_orders.client_order_ids[owner_slot as usize])
+        );
+    }
+    if fully_out {
+        open_orders.remove_order(owner_slot)?;
+    }
+
+    Ok(())
 }
 
 #[cfg_attr(not(feature = "program"), allow(unused))]
