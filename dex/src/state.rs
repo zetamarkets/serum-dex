@@ -2949,10 +2949,12 @@ fn action_out_event(
     client_order_id: Option<NonZeroU64>,
 ) -> DexResult {
     check_assert!(owner_slot < 128)?;
-    check_assert_eq!(&open_orders.slot_side(owner_slot), &Some(side))?;
+    // check_assert_eq!(&open_orders.slot_side(owner_slot), &Some(side))?;
     // check_assert_eq!(open_orders.orders[owner_slot as usize], order_id)?;
 
-    if open_orders.orders[owner_slot as usize] != order_id {
+    if open_orders.orders[owner_slot as usize] != order_id
+        || &open_orders.slot_side(owner_slot) != &Some(side)
+    {
         return Ok(());
     }
 
