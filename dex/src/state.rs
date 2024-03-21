@@ -3456,6 +3456,7 @@ impl State {
                         None,
                     ) {
                         Ok(acc) => acc,
+                        // TODO: Actually we could leave this if we do open orders accoutn seeds checking in the zeta program
                         Err(_) => continue,
                     }
                 }
