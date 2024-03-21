@@ -3445,10 +3445,19 @@ impl State {
             let owner: [u64; 4] = event.owner;
             let owner_index: Result<usize, usize> = open_orders_accounts
                 .binary_search_by_key(&owner, |account_info| account_info.key.to_aligned_bytes());
-            let open_orders_result: DexResult<RefMut<OpenOrders>> = match owner_index {
+            let mut open_orders: RefMut<OpenOrders> = match owner_index {
                 Err(_) => break,
                 Ok(i) => {
-                    market.load_orders_mut(&open_orders_accounts[i], None, program_id, None, None)
+                    match market.load_orders_mut(
+                        &open_orders_accounts[i],
+                        None,
+                        program_id,
+                        None,
+                        None,
+                    ) {
+                        Ok(acc) => acc,
+                        Err(_) => continue,
+                    }
                 }
             };
 
@@ -3467,14 +3476,12 @@ impl State {
                 } => {
                     match side {
                         Side::Bid if maker => {
-                            let mut open_orders = open_orders_result.unwrap();
                             open_orders.native_pc_total -= native_qty_paid;
                             open_orders.native_coin_total += native_qty_received;
                             open_orders.native_coin_free += native_qty_received;
                             open_orders.native_pc_free += native_fee_or_rebate;
                         }
                         Side::Ask if maker => {
-                            let mut open_orders = open_orders_result.unwrap();
                             open_orders.native_coin_total -= native_qty_paid;
                             open_orders.native_pc_total += native_qty_received;
                             open_orders.native_pc_free += native_qty_received;
@@ -3483,24 +3490,13 @@ impl State {
                     };
                     if !maker {
                         let referrer_rebate = fees::referrer_rebate(native_fee_or_rebate);
-
-                        match open_orders_result {
-                            Ok(open_orders) => {
-                                open_orders.referrer_rebates_accrued += referrer_rebate
-                            }
-                            Err(e) => continue,
-                        }
+                        open_orders.referrer_rebates_accrued += referrer_rebate;
                     }
                     if let Some(client_id) = client_order_id {
-                        match open_orders_result {
-                            Ok(open_orders) => {
-                                debug_assert_eq!(
-                                    client_id.get(),
-                                    identity(open_orders.client_order_ids[owner_slot as usize])
-                                );
-                            }
-                            Err(e) => continue,
-                        }
+                        debug_assert_eq!(
+                            client_id.get(),
+                            identity(open_orders.client_order_ids[owner_slot as usize])
+                        );
                     }
                 }
                 EventView::Out {
@@ -3512,21 +3508,18 @@ impl State {
                     owner: _,
                     owner_slot,
                     client_order_id,
-                } => match open_orders_result {
-                    Ok(open_orders) => {
-                        action_out_event(
-                            &mut open_orders,
-                            order_id,
-                            side,
-                            release_funds,
-                            native_qty_unlocked,
-                            native_qty_still_locked,
-                            owner_slot,
-                            client_order_id,
-                        )?;
-                    }
-                    Err(e) => continue,
-                },
+                } => {
+                    action_out_event(
+                        &mut open_orders,
+                        order_id,
+                        side,
+                        release_funds,
+                        native_qty_unlocked,
+                        native_qty_still_locked,
+                        owner_slot,
+                        client_order_id,
+                    )?;
+                }
             };
 
             event_q
