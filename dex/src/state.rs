@@ -3446,13 +3446,16 @@ impl State {
             let owner_index: Result<usize, usize> = open_orders_accounts
                 .binary_search_by_key(&owner, |account_info| account_info.key.to_aligned_bytes());
             let mut open_orders: RefMut<OpenOrders> = match owner_index {
-                Ok(i) => market.load_orders_mut(
+                Ok(i) => match market.load_orders_mut(
                     &open_orders_accounts[i],
                     None,
                     program_id,
                     None,
                     None,
-                )?,
+                ) {
+                    Ok(x) => x,
+                    Err(_) => continue,
+                },
                 Err(_) => break,
             };
 
