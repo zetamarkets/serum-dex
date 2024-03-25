@@ -3454,7 +3454,13 @@ impl State {
                     None,
                 ) {
                     Ok(x) => x,
-                    Err(_) => continue,
+                    Err(_) => {
+                        event_q
+                            .pop_front()
+                            .map_err(|()| DexErrorCode::ConsumeEventsQueueFailure)
+                            .unwrap();
+                        continue;
+                    }
                 },
                 Err(_) => break,
             };
