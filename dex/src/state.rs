@@ -2949,8 +2949,14 @@ fn action_out_event(
     client_order_id: Option<NonZeroU64>,
 ) -> DexResult {
     check_assert!(owner_slot < 128)?;
-    check_assert_eq!(&open_orders.slot_side(owner_slot), &Some(side))?;
-    check_assert_eq!(open_orders.orders[owner_slot as usize], order_id)?;
+    // check_assert_eq!(&open_orders.slot_side(owner_slot), &Some(side))?;
+    // check_assert_eq!(open_orders.orders[owner_slot as usize], order_id)?;
+
+    if open_orders.orders[owner_slot as usize] != order_id
+        || &open_orders.slot_side(owner_slot) != &Some(side)
+    {
+        return Ok(());
+    }
 
     let fully_out = native_qty_still_locked == 0;
 
@@ -3440,7 +3446,6 @@ impl State {
             let owner_index: Result<usize, usize> = open_orders_accounts
                 .binary_search_by_key(&owner, |account_info| account_info.key.to_aligned_bytes());
             let mut open_orders: RefMut<OpenOrders> = match owner_index {
-                Err(_) => break,
                 Ok(i) => market.load_orders_mut(
                     &open_orders_accounts[i],
                     None,
@@ -3448,6 +3453,7 @@ impl State {
                     None,
                     None,
                 )?,
+                Err(_) => break,
             };
 
             match event.as_view()? {
