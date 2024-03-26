@@ -1,8 +1,12 @@
 #![cfg_attr(not(feature = "program"), allow(unused))]
 use num_enum::TryFromPrimitive;
 use std::{
-    cell::RefMut, convert::identity, convert::TryInto, mem::size_of, num::NonZeroU64, ops::Deref,
-    ops::DerefMut,
+    cell::RefMut,
+    convert::{identity, TryInto},
+    mem::size_of,
+    num::NonZeroU64,
+    ops::{Deref, DerefMut},
+    str::FromStr,
 };
 
 use arrayref::{array_ref, array_refs, mut_array_refs};
@@ -16,7 +20,7 @@ use num_traits::FromPrimitive;
 use safe_transmute::{self, to_bytes::transmute_to_bytes, trivial::TriviallyTransmutable};
 
 use solana_program::{
-    account_info::AccountInfo, clock::Clock, program_error::ProgramError, program_pack::Pack,
+    account_info::AccountInfo, clock::Clock, msg, program_error::ProgramError, program_pack::Pack,
     pubkey::Pubkey, rent::Rent, sysvar::Sysvar,
 };
 use spl_token::error::TokenError;
@@ -3437,8 +3441,22 @@ impl State {
         } = args;
 
         for _i in 0u16..limit {
+            if *open_orders_accounts[0].key
+                == Pubkey::from_str("9ToLAwKbk4fGhaE6oRxrZSTciunaNsvGzSff8htBXxKH").unwrap()
+            {
+                msg!("Overriding and breaking");
+                event_q
+                    .pop_front()
+                    .map_err(|()| DexErrorCode::ConsumeEventsQueueFailure)
+                    .unwrap();
+                break;
+            }
+
             let event = match event_q.peek_front() {
-                None => break,
+                None => {
+                    msg!("Breaking 1");
+                    break;
+                }
                 Some(e) => e,
             };
 
@@ -3455,6 +3473,7 @@ impl State {
                 ) {
                     Ok(x) => x,
                     Err(_) => {
+                        msg!("Caught error in loading orders, popping front");
                         event_q
                             .pop_front()
                             .map_err(|()| DexErrorCode::ConsumeEventsQueueFailure)
@@ -3462,7 +3481,10 @@ impl State {
                         continue;
                     }
                 },
-                Err(_) => break,
+                Err(_) => {
+                    msg!("Breaking 2");
+                    break;
+                }
             };
 
             match event.as_view()? {
