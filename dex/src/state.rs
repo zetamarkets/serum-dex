@@ -3055,7 +3055,7 @@ impl State {
                 )?
             }
             MarketInstruction::CancelOrderV2NoError(ref inner) => {
-                account_parser::CancelOrderV2NoErrorArgs::with_parsed_args(
+                let _ = account_parser::CancelOrderV2NoErrorArgs::with_parsed_args(
                     program_id,
                     accounts,
                     inner,
@@ -3079,7 +3079,7 @@ impl State {
                 )?
             }
             MarketInstruction::CancelOrderByClientIdV2NoError(client_id) => {
-                account_parser::CancelOrderByClientIdV2NoErrorArgs::with_parsed_args(
+                let _ = account_parser::CancelOrderByClientIdV2NoErrorArgs::with_parsed_args(
                     program_id,
                     accounts,
                     client_id,
