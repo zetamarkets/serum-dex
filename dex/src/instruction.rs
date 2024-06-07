@@ -601,6 +601,10 @@ pub enum MarketInstruction {
     /// 3. `[writable]` event queue
     /// 4. `[signer]` crank authority
     PopTailOutEventsPermissioned(u16),
+    /// 0. `[writable]` OpenOrders
+    /// 1. `[signer]` the OpenOrders owner
+    /// 3. `[]` market
+    ResetOpenOrdersPermissioned,
 }
 
 impl MarketInstruction {
@@ -728,6 +732,7 @@ impl MarketInstruction {
                 let limit = array_ref![data, 0, 2];
                 MarketInstruction::PopTailOutEventsPermissioned(u16::from_le_bytes(*limit))
             }
+            (24, 0) => MarketInstruction::ResetOpenOrdersPermissioned,
             _ => return None,
         })
     }
@@ -1331,6 +1336,25 @@ pub fn prune_expired(
         AccountMeta::new(*asks, false),
         AccountMeta::new_readonly(*prune_authority, true),
         AccountMeta::new(*event_q, false),
+    ];
+    Ok(Instruction {
+        program_id: *program_id,
+        data,
+        accounts,
+    })
+}
+
+pub fn reset_open_orders_permissioned(
+    program_id: &Pubkey,
+    open_orders: &Pubkey,
+    owner: &Pubkey,
+    market: &Pubkey,
+) -> Result<Instruction, DexError> {
+    let data = MarketInstruction::ResetOpenOrdersPermissioned.pack();
+    let accounts: Vec<AccountMeta> = vec![
+        AccountMeta::new(*open_orders, false),
+        AccountMeta::new_readonly(*owner, true),
+        AccountMeta::new_readonly(*market, false),
     ];
     Ok(Instruction {
         program_id: *program_id,
