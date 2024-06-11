@@ -2705,6 +2705,50 @@ pub(crate) mod account_parser {
         }
     }
 
+    pub struct ResetOpenOrdersPermissionedArgs;
+
+    impl ResetOpenOrdersPermissionedArgs {
+        pub fn with_parsed_args<T>(
+            program_id: &Pubkey,
+            accounts: &[AccountInfo],
+            f: impl FnOnce(ResetOpenOrdersPermissionedArgs) -> DexResult<T>,
+        ) -> DexResult<T> {
+            // Parse accounts.
+            check_assert_eq!(accounts.len(), 3)?;
+            #[rustfmt::skip]
+            let &[
+                ref open_orders_acc,
+                ref owner_acc,
+                ref market_acc,
+            ] = array_ref![accounts, 0, 3];
+
+            // Validate the accounts given are valid.
+            let owner = SignerAccount::new(owner_acc)?;
+            let market = Market::load(market_acc, program_id)?;
+            let mut open_orders = market.load_orders_mut(
+                open_orders_acc,
+                Some(owner.inner()),
+                program_id,
+                None,
+                None,
+            )?;
+
+            open_orders.native_coin_free = 0;
+            open_orders.native_coin_total = 0;
+            open_orders.native_pc_total = 0;
+            open_orders.native_pc_free = 0;
+
+            open_orders.free_slot_bits = std::u128::MAX;
+            open_orders.is_bid_bits = 0;
+            open_orders.orders = [0; 128];
+            open_orders.client_order_ids = [0; 128];
+            open_orders.referrer_rebates_accrued = 0;
+
+            // Invoke processor.
+            f(ResetOpenOrdersPermissionedArgs)
+        }
+    }
+
     pub struct CloseOpenOrdersArgs<'a, 'b: 'a> {
         pub open_orders: &'a mut OpenOrders,
         pub open_orders_acc: &'a AccountInfo<'b>,
@@ -3142,6 +3186,13 @@ impl State {
                     Self::process_pop_tail_out_events,
                 )?
             }
+            MarketInstruction::ResetOpenOrdersPermissioned => {
+                account_parser::ResetOpenOrdersPermissionedArgs::with_parsed_args(
+                    program_id,
+                    accounts,
+                    Self::process_reset_open_orders_permissioned,
+                )?
+            }
         };
         Ok(())
     }
@@ -3243,6 +3294,12 @@ impl State {
         // garbage collection.
         open_orders.account_flags = AccountFlag::Closed as u64;
 
+        Ok(())
+    }
+
+    fn process_reset_open_orders_permissioned(
+        _args: account_parser::ResetOpenOrdersPermissionedArgs,
+    ) -> DexResult {
         Ok(())
     }
 
