@@ -1244,6 +1244,7 @@ enum EventFlag {
     Bid = 0x4,
     Maker = 0x8,
     ReleaseFunds = 0x10,
+    SelfTradeCancel = 0x20,
 }
 
 impl EventFlag {
@@ -1400,7 +1401,8 @@ impl Event {
         check_assert!(allowed_flags.contains(flags))?;
         Ok(EventView::Out {
             side,
-            release_funds: flags.contains(EventFlag::ReleaseFunds),
+            release_funds: flags.contains(EventFlag::ReleaseFunds)
+                && flags.contains(EventFlag::SelfTradeCancel),
             native_qty_unlocked: self.native_qty_released,
             native_qty_still_locked: self.native_qty_paid,
 
