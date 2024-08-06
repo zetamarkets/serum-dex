@@ -458,15 +458,17 @@ impl<'ob> OrderBookState<'ob> {
                 let best_bid_id = order_id;
                 let cancelled_provide_qty;
                 let cancelled_take_qty;
-
+                let mut release = true;
                 match self_trade_behavior {
                     SelfTradeBehavior::DecrementTake => {
                         cancelled_provide_qty = trade_qty;
                         cancelled_take_qty = trade_qty;
+                        release = false;
                     }
                     SelfTradeBehavior::CancelProvide => {
                         cancelled_provide_qty = best_bid_ref.quantity();
                         cancelled_take_qty = 0;
+                        release = false;
                     }
                     SelfTradeBehavior::AbortTransaction => {
                         return Err(DexErrorCode::WouldSelfTrade.into())
@@ -476,7 +478,7 @@ impl<'ob> OrderBookState<'ob> {
                 let remaining_provide_size = bid_size - cancelled_provide_qty;
                 let provide_out = Event::new(EventView::Out {
                     side: Side::Bid,
-                    release_funds: true,
+                    release_funds: release,
                     native_qty_unlocked: cancelled_provide_qty * trade_price.get() * pc_lot_size,
                     native_qty_still_locked: remaining_provide_size
                         * trade_price.get()
