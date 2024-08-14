@@ -431,6 +431,7 @@ impl<'ob> OrderBookState<'ob> {
                     owner: order.owner(),
                     owner_slot: order.owner_slot(),
                     client_order_id: NonZeroU64::new(order.client_order_id()),
+                    self_trade: false,
                 });
                 event_q
                     .push_back(out)
@@ -458,17 +459,14 @@ impl<'ob> OrderBookState<'ob> {
                 let best_bid_id = order_id;
                 let cancelled_provide_qty;
                 let cancelled_take_qty;
-                let mut release = true;
                 match self_trade_behavior {
                     SelfTradeBehavior::DecrementTake => {
                         cancelled_provide_qty = trade_qty;
                         cancelled_take_qty = trade_qty;
-                        release = false;
                     }
                     SelfTradeBehavior::CancelProvide => {
                         cancelled_provide_qty = best_bid_ref.quantity();
                         cancelled_take_qty = 0;
-                        release = false;
                     }
                     SelfTradeBehavior::AbortTransaction => {
                         return Err(DexErrorCode::WouldSelfTrade.into())
@@ -478,7 +476,7 @@ impl<'ob> OrderBookState<'ob> {
                 let remaining_provide_size = bid_size - cancelled_provide_qty;
                 let provide_out = Event::new(EventView::Out {
                     side: Side::Bid,
-                    release_funds: release,
+                    release_funds: true,
                     native_qty_unlocked: cancelled_provide_qty * trade_price.get() * pc_lot_size,
                     native_qty_still_locked: remaining_provide_size
                         * trade_price.get()
@@ -487,6 +485,7 @@ impl<'ob> OrderBookState<'ob> {
                     owner: best_bid_ref.owner(),
                     owner_slot: best_bid_ref.owner_slot(),
                     client_order_id: NonZeroU64::new(best_bid_ref.client_order_id()),
+                    self_trade: true,
                 });
                 event_q
                     .push_back(provide_out)
@@ -509,6 +508,7 @@ impl<'ob> OrderBookState<'ob> {
                     owner,
                     owner_slot,
                     client_order_id: NonZeroU64::new(client_order_id),
+                    self_trade: true,
                 });
                 event_q
                     .push_back(take_out)
@@ -560,6 +560,7 @@ impl<'ob> OrderBookState<'ob> {
                         owner: best_bid_ref.owner(),
                         owner_slot: best_bid_ref.owner_slot(),
                         client_order_id: NonZeroU64::new(best_bid_ref.client_order_id()),
+                        self_trade: false,
                     }))
                     .map_err(|_| DexErrorCode::EventQueueFull)?;
                 self.orders_mut(Side::Bid)
@@ -641,6 +642,7 @@ impl<'ob> OrderBookState<'ob> {
                     owner: order.owner(),
                     owner_slot: order.owner_slot(),
                     client_order_id: NonZeroU64::new(order.client_order_id()),
+                    self_trade: false,
                 });
                 event_q
                     .push_back(out)
@@ -660,6 +662,7 @@ impl<'ob> OrderBookState<'ob> {
                 owner,
                 owner_slot,
                 client_order_id: NonZeroU64::new(client_order_id),
+                self_trade: false,
             });
             event_q
                 .push_back(out)
@@ -758,6 +761,7 @@ impl<'ob> OrderBookState<'ob> {
                     owner: order.owner(),
                     owner_slot: order.owner_slot(),
                     client_order_id: NonZeroU64::new(order.client_order_id()),
+                    self_trade: false,
                 });
 
                 event_q
@@ -815,6 +819,7 @@ impl<'ob> OrderBookState<'ob> {
                     owner: best_offer_ref.owner(),
                     owner_slot: best_offer_ref.owner_slot(),
                     client_order_id: NonZeroU64::new(best_offer_ref.client_order_id()),
+                    self_trade: true,
                 });
                 event_q
                     .push_back(provide_out)
@@ -865,6 +870,7 @@ impl<'ob> OrderBookState<'ob> {
                         owner,
                         owner_slot,
                         client_order_id: NonZeroU64::new(client_order_id),
+                        self_trade: true,
                     });
                     event_q
                         .push_back(take_out)
@@ -910,6 +916,7 @@ impl<'ob> OrderBookState<'ob> {
                         owner: best_offer_ref.owner(),
                         owner_slot: best_offer_ref.owner_slot(),
                         client_order_id: NonZeroU64::new(best_offer_ref.client_order_id()),
+                        self_trade: false,
                     }))
                     .map_err(|_| DexErrorCode::EventQueueFull)?;
                 self.orders_mut(Side::Ask)
@@ -994,6 +1001,7 @@ impl<'ob> OrderBookState<'ob> {
                 owner,
                 owner_slot,
                 client_order_id: NonZeroU64::new(client_order_id),
+                self_trade: false,
             })
         };
         event_q
@@ -1025,6 +1033,7 @@ impl<'ob> OrderBookState<'ob> {
                     owner: order.owner(),
                     owner_slot: order.owner_slot(),
                     client_order_id: NonZeroU64::new(order.client_order_id()),
+                    self_trade: false,
                 });
                 event_q
                     .push_back(out)
@@ -1124,6 +1133,7 @@ impl<'ob> OrderBookState<'ob> {
                 owner: open_orders_address,
                 owner_slot: open_orders_slot,
                 client_order_id: NonZeroU64::new(leaf_node.client_order_id()),
+                self_trade: false,
             }))
             .map_err(|_| DexErrorCode::EventQueueFull)?;
         Ok(())
@@ -1152,6 +1162,7 @@ impl<'ob> OrderBookState<'ob> {
                 owner: leaf_node.owner(),
                 owner_slot: leaf_node.owner_slot(),
                 client_order_id: NonZeroU64::new(leaf_node.client_order_id()),
+                self_trade: false,
             }))
             .map_err(|_| DexErrorCode::EventQueueFull)?;
 
@@ -1191,6 +1202,7 @@ impl<'ob> OrderBookState<'ob> {
                         owner: expected_owner,
                         owner_slot: expected_owner_slot,
                         client_order_id: NonZeroU64::new(leaf_node.client_order_id()),
+                        self_trade: false,
                     }))
                     .map_err(|_| DexErrorCode::EventQueueFull)?;
             } else {
