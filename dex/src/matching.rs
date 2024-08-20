@@ -812,7 +812,7 @@ impl<'ob> OrderBookState<'ob> {
                 let remaining_provide_qty = offer_size - cancelled_provide_qty;
                 let provide_out = Event::new(EventView::Out {
                     side: Side::Ask,
-                    release_funds: false,
+                    release_funds: true,
                     native_qty_unlocked: cancelled_provide_qty * coin_lot_size,
                     native_qty_still_locked: remaining_provide_qty * coin_lot_size,
                     order_id: best_offer_id,
