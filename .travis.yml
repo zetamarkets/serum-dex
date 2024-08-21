@@ -4,7 +4,7 @@ os: linux
 env:
   global:
     - NODE_VERSION="v14.7.0"
-    - SOLANA_VERSION="v1.6.18"
+    - SOLANA_VERSION="v1.14.16"
 
 _defaults: &defaults
   cache: false

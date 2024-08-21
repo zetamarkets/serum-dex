@@ -1244,6 +1244,7 @@ enum EventFlag {
     Bid = 0x4,
     Maker = 0x8,
     ReleaseFunds = 0x10,
+    SelfTradeOut = 0x20,
 }
 
 impl EventFlag {
@@ -1339,14 +1340,21 @@ impl Event {
                 owner,
                 owner_slot,
                 client_order_id,
+                self_trade,
             } => {
                 let release_funds_flag = if release_funds {
                     BitFlags::from_flag(EventFlag::ReleaseFunds).bits()
                 } else {
                     0
                 };
-                let event_flags =
-                    (EventFlag::from_side(side) | EventFlag::Out).bits() | release_funds_flag;
+                let self_trade_flag = if self_trade {
+                    BitFlags::from_flag(EventFlag::SelfTradeOut).bits()
+                } else {
+                    0
+                };
+                let event_flags = ((EventFlag::from_side(side) | EventFlag::Out).bits()
+                    | release_funds_flag)
+                    | self_trade_flag;
                 Event {
                     event_flags,
                     owner_slot,
@@ -1395,7 +1403,7 @@ impl Event {
         }
         let allowed_flags = {
             use EventFlag::*;
-            Out | Bid | ReleaseFunds
+            Out | Bid | ReleaseFunds | SelfTradeOut
         };
         check_assert!(allowed_flags.contains(flags))?;
         Ok(EventView::Out {
@@ -1409,6 +1417,7 @@ impl Event {
 
             owner_slot: self.owner_slot,
             client_order_id,
+            self_trade: flags.contains(EventFlag::SelfTradeOut),
         })
     }
 }
@@ -1436,6 +1445,7 @@ pub enum EventView {
         owner: [u64; 4],
         owner_slot: u8,
         client_order_id: Option<NonZeroU64>,
+        self_trade: bool,
     },
 }
 
@@ -3560,6 +3570,7 @@ impl State {
                     owner: _,
                     owner_slot,
                     client_order_id,
+                    self_trade: _,
                 } => {
                     action_out_event(
                         &mut open_orders,
@@ -3633,6 +3644,7 @@ impl State {
                     owner: _,
                     owner_slot,
                     client_order_id,
+                    self_trade: _,
                 } => {
                     action_out_event(
                         open_orders,
